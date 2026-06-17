@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旅團集會點名系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Noto Sans TC', sans-serif; }
+    .status-btn { transition: all 0.2s; }
+    .status-btn.active { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .status-P { background-color: #dcfce7; color: #166534; border-color: #166534; }
+    .status-A { background-color: #fee2e2; color: #991b1b; border-color: #991b1b; }
+    .status-L { background-color: #fef9c3; color: #854d0e; border-color: #854d0e; }
+    .status-E { background-color: #dbeafe; color: #1e40af; border-color: #1e40af; }
+    .status-S { background-color: #f3e8ff; color: #6b21a8; border-color: #6b21a8; }
+    .embed-hide { display: block; }
+    .embed .embed-hide { display: none !important; }
+    .embed { padding: 0.5rem; }
+    .embed .card { border-radius: 0.5rem; }
+    .print-table { border-collapse: collapse; }
+    .print-table th, .print-table td { border: 1px solid #000; padding: 6px 8px; text-align: center; font-size: 12px; }
+    .print-table th { background: #f0f0f0; font-weight: bold; }
+    @media print { .no-print { display: none !important; } body { padding: 0; } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="app" class="max-w-7xl mx-auto p-4">
+
+    <!-- 頂部導航（embed 模式隱藏） -->
+    <header class="embed-hide bg-white rounded-xl shadow-sm p-4 mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg font-bold">📝</div>
+        <div>
+          <h1 class="text-xl font-bold text-gray-900">旅團集會點名系統</h1>
+          <p id="troop-name" class="text-sm text-gray-500">載入中...</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="user-role" class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">載入中</span>
+        <button onclick="toggleOnboarding()" class="text-sm px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium">📖 新手教學</button>
+        <button onclick="showQuickHelp()" class="text-sm px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">❓ 快速幫助</button>
+      </div>
+    </header>
+
+    <!-- 新手教學面板（可開關） -->
+    <div id="onboarding-panel" class="hidden bg-white rounded-xl shadow-sm p-6 mb-4 border-l-4 border-blue-600">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-900">📖 新手教學</h2>
+        <button onclick="toggleOnboarding()" class="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">✕ 關閉</button>
+      </div>
+      <div id="onboarding-content"></div>
+    </div>
+
+    <!-- 未開通提示 / 無參數時 onboarding -->
+    <div id="onboarding-view" class="hidden bg-white rounded-xl shadow-sm p-6 mb-4">
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-3">📝</div>
+        <h2 class="text-xl font-bold text-gray-900">集會點名系統 — 接入教學</h2>
+        <p class="text-sm text-gray-500 mt-1">這是第3級插件，你的旅團需要完成後台部署才能使用。</p>
+      </div>
+
+      <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-4">
+        <p class="text-sm text-blue-800 font-medium">💡 什麼是第3級插件？</p>
+        <p class="text-xs text-blue-700 mt-1">系統管理員部署了共用前端，每個旅團只需部署自己的 GAS 後端（Google Apps Script），資料獨立且安全。</p>
+      </div>
+
+      <div class="bg-white rounded-lg border p-4 mb-4">
+        <h3 class="font-bold text-gray-900 mb-3 text-sm">📋 你需要準備</h3>
+        <ul class="text-sm text-gray-600 space-y-1">
+          <li>• Google 帳號（建議用旅團共用帳號）</li>
+          <li>• 空白 Google Sheet</li>
+          <li>• 旅團主系統的 Sheet ID（已有的 ScoutSystem 2.0）</li>
+          <li>• 旅團號，例如 0082</li>
+        </ul>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">1</div>
+          <div class="text-sm text-gray-600">
+            <p class="font-medium text-gray-900">開新 Google Sheet</p>
+            <p>開 <a href="https://sheets.new" target="_blank" class="text-blue-600 underline">sheets.new</a>，命名「第XX旅 集會點名紀錄」</p>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">2</div>
+          <div class="text-sm text-gray-600">
+            <p class="font-medium text-gray-900">建立 Config 工作表</p>
+            <p>新增工作表命名 <code class="bg-gray-100 px-1 rounded text-xs">Config</code>，填入：</p>
+            <div class="mt-1 bg-gray-50 p-2 rounded text-xs font-mono text-gray-700">
+              A1: SOURCE_SHEET_ID &nbsp;&nbsp; B1: 你的旅團主系統 Sheet ID<br>
+              A2: TROOP_CODE &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B2: 82（你的旅團號）
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Sheet ID 從主系統網址 <code>.../d/XXXX/edit</code> 複製</p>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">3</div>
+          <div class="text-sm text-gray-600">
+            <p class="font-medium text-gray-900">貼上 Apps Script</p>
+            <p>上方選單「擴充功能」→「Apps Script」→ 刪除原有 Code.gs → 新建 Code.gs</p>
+            <p class="mt-1">把系統提供的 GAS 程式碼完整貼入 → 按 <strong>Ctrl+S</strong> 儲存</p>
+            <div class="mt-1">
+              <a href="./gas/Code.gs" download class="inline-block px-3 py-1.5 bg-blue-50 text-blue-700 rounded text-xs font-medium hover:bg-blue-100">⬇️ 下載 Code.gs</a>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">4</div>
+          <div class="text-sm text-gray-600">
+            <p class="font-medium text-gray-900">部署為網頁應用程式</p>
+            <p>按「執行」→ 選 <code class="bg-gray-100 px-1 rounded text-xs">doGet</code> → 授權允許 → 右上「部署」→「新增部署」</p>
+            <p class="mt-1">類型：網頁應用程式｜執行身分：我｜誰可以存取：任何人</p>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">5</div>
+          <div class="text-sm text-gray-600">
+            <p class="font-medium text-gray-900">提交申請</p>
+            <p>複製部署後的 /exec 網址，填入下方表單提交給系統管理員。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 border-t pt-4">
+        <h3 class="font-bold text-gray-900 mb-3 text-sm">📤 提交接入申請</h3>
+        <p class="text-xs text-gray-500 mb-3">完成部署後，把以下資料交回平台管理員。</p>
+        <form id="onboard-form" class="space-y-3 max-w-lg">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">旅團名稱</label>
+            <input type="text" id="troop-name" placeholder="例如：第82旅" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">旅團號</label>
+            <input type="text" id="troop-id" placeholder="例如：82" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">聯絡人 Email</label>
+            <input type="email" id="contact-email" placeholder="部署者的 Email" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Apps Script Web App URL</label>
+            <input type="text" id="gas-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">備註（可選）</label>
+            <textarea id="notes" rows="2" placeholder="其他說明" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+          </div>
+        </form>
+        <div class="mt-4 flex gap-2">
+          <a id="submit-mailto" href="#" class="flex-1 text-center px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+            📧 用 Email 提交
+          </a>
+        </div>
+        <p class="text-xs text-gray-400 mt-2 text-center">會自動打開你的 Email 客戶端，填入所有資料。</p>
+      </div>
+
+      <p class="text-xs text-gray-400 mt-4 text-center">已開通？請從 Portal 登入使用。</p>
+    </div>
+
+    <!-- 領袖/管理員 主介面 -->
+    <div id="leader-panel" class="hidden space-y-4">
+      <!-- 支部標籤 -->
+      <div id="branch-tabs" class="flex gap-2 overflow-x-auto pb-2"></div>
+
+      <!-- 工具列 -->
+      <div class="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-gray-700 whitespace-nowrap">集會日期：</label>
+          <input type="date" id="meeting-date" class="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="loadAttendance()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium">📋 載入/建立點名</button>
+          <button onclick="showMatrix()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 font-medium">📊 查看矩陣</button>
+          <button onclick="downloadWordDoc()" class="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 font-medium">📝 下載 Word</button>
+          <button onclick="downloadCSV()" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm hover:bg-indigo-200 font-medium">📄 匯出 CSV</button>
+          <button onclick="openPrintView()" class="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm hover:bg-orange-200 font-medium">🖨️ 列印</button>
+        </div>
+        <div class="flex items-center gap-2 ml-auto">
+          <button onclick="syncMembers()" class="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 font-medium">🔄 同步成員</button>
+          <button onclick="initSheet()" class="px-3 py-2 bg-red-50 text-red-700 rounded-lg text-sm hover:bg-red-100 font-medium" title="清空並重新初始化點名表">⚠️ 重置</button>
+        </div>
+      </div>
+
+      <!-- 成員搜尋（領袖查個別成員） -->
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-gray-700">🔍 查詢成員出席：</span>
+          <input type="text" id="search-member" placeholder="輸入姓名或 YMIS 號碼" class="px-3 py-2 border rounded-lg text-sm flex-1 max-w-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <button onclick="searchMember()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium">查詢</button>
+          <button onclick="clearSearch()" class="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">清除</button>
+        </div>
+        <div id="member-detail-panel" class="hidden mt-4 p-4 bg-gray-50 rounded-lg border"></div>
+      </div>
+
+      <!-- 狀態圖例 -->
+      <div class="flex items-center gap-4 text-xs text-gray-600">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-200 border border-green-800"></span> P 出席</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-200 border border-red-800"></span> A 缺席</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-yellow-200 border border-yellow-800"></span> L 遲到</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-200 border border-blue-800"></span> E 請假</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-purple-200 border border-purple-800"></span> S 病假</span>
+      </div>
+
+      <!-- 點名表格 -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden card">
+        <div class="p-4 border-b flex items-center justify-between flex-wrap gap-2">
+          <h3 id="panel-title" class="font-bold text-gray-900">點名表</h3>
+          <div class="flex items-center gap-2">
+            <span id="unsaved-badge" class="hidden px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-medium">未儲存</span>
+            <button onclick="saveAttendance()" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 font-medium">💾 儲存點名</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium text-gray-700 min-w-[100px]">姓名</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-700">小隊</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-700">YMIS</th>
+                <th class="px-4 py-3 text-center font-medium text-gray-700 min-w-[240px]">出席狀態</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-700 min-w-[140px]">備註</th>
+              </tr>
+            </thead>
+            <tbody id="attendance-body" class="divide-y"></tbody>
+          </table>
+        </div>
+        <div id="empty-state" class="p-8 text-center text-gray-500">
+          <p class="text-lg mb-2">👋 歡迎使用點名系統</p>
+          <p class="text-sm">請先選擇支部與日期，然後按「載入/建立點名」</p>
+          <p class="text-sm text-gray-400 mt-1">提示：系統會自動從旅團主系統同步最新成員名單</p>
+        </div>
+      </div>
+
+      <!-- 矩陣視圖 -->
+      <div id="matrix-panel" class="hidden bg-white rounded-xl shadow-sm overflow-hidden card">
+        <div class="p-4 border-b flex items-center justify-between">
+          <h3 class="font-bold text-gray-900">📊 出席矩陣（最近紀錄）</h3>
+          <div class="flex items-center gap-2">
+            <select id="matrix-days" class="px-2 py-1 border rounded text-sm" onchange="showMatrix()">
+              <option value="7">最近 7 次</option>
+              <option value="14">最近 14 次</option>
+              <option value="30" selected>最近 30 次</option>
+              <option value="60">最近 60 次</option>
+            </select>
+            <button onclick="hideMatrix()" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-900">關閉</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto p-4">
+          <table id="matrix-table" class="w-full text-sm border-collapse border border-gray-200"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 成員/家長 模式 -->
+    <div id="member-panel" class="hidden bg-white rounded-xl shadow-sm p-6 card">
+      <h2 class="text-lg font-bold mb-4 text-gray-900">👤 我的出席紀錄</h2>
+      <div id="member-login" class="max-w-md mx-auto space-y-4">
+        <p class="text-gray-600 text-sm">請用你在旅團系統的 YMIS 號碼或 Email 登入。</p>
+        <div class="space-y-3">
+          <input type="text" id="member-id" placeholder="YMIS 號碼或 Email" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <input type="password" id="member-pwd" placeholder="密碼（若需要驗證）" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <button onclick="loadMyRecord()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">查看我的紀錄</button>
+        </div>
+      </div>
+      <div id="member-record" class="hidden"></div>
+    </div>
+
+    <!-- 列印視圖 -->
+    <div id="print-view" class="hidden fixed inset-0 bg-white z-50 overflow-auto p-8">
+      <div class="max-w-5xl mx-auto">
+        <div class="no-print flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">🖨️ 列印預覽</h2>
+          <div class="flex gap-2">
+            <button onclick="window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">列印</button>
+            <button onclick="closePrintView()" class="px-4 py-2 bg-gray-100 rounded-lg text-sm">關閉</button>
+          </div>
+        </div>
+        <div id="print-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    // ========== 路由參數解析（核心合約） ==========
+    const q = new URLSearchParams(location.search);
+    const unit = q.get('u') || '';
+    const role = q.get('role') || 'guest';
+    const from = q.get('from') || '';
+    const embed = q.get('embed') === '1';
+    if (embed) document.body.classList.add('embed');
+
+    // ========== 共用配置 ==========
+    const REGISTRY_URL = (typeof CONFIG !== 'undefined' && CONFIG.REGISTRY_URL) ? CONFIG.REGISTRY_URL : 'https://troop-router.vercel.app/api/registry';
+    let GAS_URL = '';
+    let troopConfig = {};
+    let branches = [];
+    let currentBranch = '';
+    let currentDate = '';
+    let members = [];
+    let attendanceRecords = [];
+    let hasChanges = false;
+
+    // ========== 初始化 ==========
+    async function init() {
+      const roleLabel = { leader: '領袖', admin: '管理員', member: '團員', parent: '家長', guest: '訪客' };
+      document.getElementById('user-role').textContent = roleLabel[role] || role;
+
+      // 沒有 u 參數 → 直接顯示 onboarding（插件說明/部署教學頁面）
+      if (!unit) {
+        showOnboardingView();
+        return;
+      }
+
+      // 先測試代理是否認識此旅團
+      try {
+        const test = await api('getConfig');
+        if (test.error && test.error.includes('Not registered')) {
+          showOnboardingView();
+          return;
+        }
+      } catch (e) {
+        showOnboardingView();
+        return;
+      }
+
+      document.getElementById('onboarding-view').classList.add('hidden');
+
+      if (role === 'member' || role === 'parent') {
+        document.getElementById('leader-panel').classList.add('hidden');
+        document.getElementById('member-panel').classList.remove('hidden');
+        renderOnboarding('member');
+      } else if (role === 'leader' || role === 'admin') {
+        document.getElementById('leader-panel').classList.remove('hidden');
+        renderOnboarding('leader');
+        loadConfig().then(() => loadBranches());
+      } else {
+        document.getElementById('leader-panel').classList.remove('hidden');
+        renderOnboarding('leader');
+        loadConfig().then(() => loadBranches());
+      }
+    }
+
+    // ========== 新手教學 ==========
+    function toggleOnboarding() {
+      const panel = document.getElementById('onboarding-panel');
+      panel.classList.toggle('hidden');
+      // 確保 onboarding-view 不會被誤顯示
+      if (!panel.classList.contains('hidden')) {
+        document.getElementById('onboarding-view').classList.add('hidden');
+      }
+    }
+
+    function renderOnboarding(view) {
+      const container = document.getElementById('onboarding-content');
+      if (view === 'leader') {
+        container.innerHTML = `
+          <div class="space-y-4 text-sm text-gray-600">
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <p class="font-bold text-blue-900 mb-1">👋 歡迎領袖！這是點名系統的使用方法：</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">1️⃣ 首次使用</p>
+                <p>選擇支部 → 選擇日期 → 按「載入/建立點名」→ 系統會自動從旅團主系統同步最新成員名單</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">2️⃣ 點名</p>
+                <p>點擊 P（出席）/ A（缺席）/ L（遲到）/ E（請假）/ S（病假）按鈕標記每個人的狀態，最後按「儲存點名」</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">3️⃣ 修改歷史</p>
+                <p>選擇過去的日期重新載入，可以直接修改已儲存的點名紀錄，再次儲存即可</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">4️⃣ 查看矩陣</p>
+                <p>按「查看矩陣」可以看到最近所有集會的出席狀態，方便掌握整體出席率</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">5️⃣ 匯出紀錄</p>
+                <p>可以下載 Word 文件、CSV 或直接用「列印」功能列印點名表</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">6️⃣ 查詢個別成員</p>
+                <p>在「查詢成員出席」輸入姓名或 YMIS，可以查看任何成員的完整歷史出席紀錄和統計</p>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">💡 提示：系統會自動同步旅團主系統的成員名單，有新成員或離隊時會自動更新。若發現名單不對，可按「同步成員」手動更新。</p>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="space-y-4 text-sm text-gray-600">
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <p class="font-bold text-blue-900 mb-1">👋 歡迎！這裡可以查看你的出席紀錄：</p>
+            </div>
+            <div class="grid grid-cols-1 gap-4">
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">1️⃣ 登入</p>
+                <p>輸入你的 YMIS 號碼（10位數字）或 Email 地址，以及密碼（若需要），然後按「查看我的紀錄」</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">2️⃣ 查看紀錄</p>
+                <p>登入後會顯示你所有集會的出席狀態：P=出席、A=缺席、L=遲到、E=請假、S=病假</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <p class="font-bold text-gray-800 mb-2">3️⃣ 小隊隊長</p>
+                <p>如果你是小隊隊長，登入後會額外顯示「查看小隊紀錄」按鈕，可以查看你小隊所有隊員的出席情況</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function showOnboardingView() {
+      document.getElementById('leader-panel').classList.add('hidden');
+      document.getElementById('member-panel').classList.add('hidden');
+      document.getElementById('onboarding-panel').classList.add('hidden');
+      document.getElementById('onboarding-view').classList.remove('hidden');
+      
+      // 初始化 mailto 表單
+      const form = document.getElementById('onboard-form');
+      const mailtoBtn = document.getElementById('submit-mailto');
+      if (form && mailtoBtn) {
+        function updateMailto() {
+          const name = document.getElementById('troop-name').value.trim() || '未填';
+          const id = document.getElementById('troop-id').value.trim() || '未填';
+          const email = document.getElementById('contact-email').value.trim() || '未填';
+          const gas = document.getElementById('gas-url').value.trim() || '未填';
+          const notes = document.getElementById('notes').value.trim();
+          const subject = encodeURIComponent('[集會點名系統] 旅團接入申請 — ' + name);
+          const body = encodeURIComponent(
+            '旅團名稱：' + name + '\n' +
+            '旅團號：' + id + '\n' +
+            '聯絡人 Email：' + email + '\n' +
+            'GAS URL：' + gas + '\n' +
+            (notes ? '備註：' + notes + '\n' : '')
+          );
+          mailtoBtn.href = 'mailto:ai@skwscout.org.hk?subject=' + subject + '&body=' + body;
+        }
+        form.addEventListener('input', updateMailto);
+        updateMailto();
+      }
+    }
+
+    function showQuickHelp() {
+      const tips = role === 'member' || role === 'parent'
+        ? '👋 用 YMIS 或 Email 登入即可查看你的出席紀錄。小隊隊長可以額外查看小隊隊員紀錄。\n\nP=出席  A=缺席  L=遲到  E=請假  S=病假'
+        : '👋 選支部 → 選日期 → 載入點名 → 點 P/A/L/E/S 標記 → 儲存。\n下周可選同樣日期修改。\n\n可用「查詢成員」查看任何人的歷史出席。\n\nP=出席  A=缺席  L=遲到  E=請假  S=病假';
+      alert(tips);
+    }
+
+    // ========== API 呼叫（經 Vercel 代理，用戶看不到 GAS URL） ==========
+    async function api(action, params = {}, method = 'GET', body = null) {
+      const url = new URL('/api/proxy', window.location.origin);
+      url.searchParams.set('action', action);
+      url.searchParams.set('u', unit); // 傳遞旅團碼，由 Vercel 代理路由到對應 GAS
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null) url.searchParams.set(k, v); });
+      const opts = { method };
+      if (body) {
+        opts.method = 'POST';
+        opts.body = JSON.stringify(body);
+        opts.headers = { 'Content-Type': 'application/json' };
+      }
+      const res = await fetch(url.toString(), opts);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }
+
+    async function loadConfig() {
+      try {
+        const res = await api('getConfig');
+        troopConfig = (res.data || res || {});
+        const name = troopConfig.TROOP_NAME || troopConfig.troopName || ('第' + unit + '旅');
+        document.getElementById('troop-name').textContent = name;
+      } catch (e) { console.error('getConfig failed', e); }
+    }
+
+    async function loadBranches() {
+      try {
+        const res = await api('getBranches');
+        branches = res.data || res || [];
+        const tabs = document.getElementById('branch-tabs');
+        tabs.innerHTML = branches.map((b, i) => {
+          const name = b.name || b.Name || b.branch || b.Branch || b.支部 || '支部';
+          return `<button onclick="switchBranch('${name}', ${i})" class="branch-tab px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${i===0?'bg-blue-600 text-white shadow':'bg-white text-gray-700 hover:bg-gray-50 border'}" data-idx="${i}">${name}</button>`;
+        }).join('');
+        if (branches.length > 0) switchBranch(branches[0].name || branches[0].Name || branches[0].branch, 0);
+      } catch (e) { alert('載入支部失敗：' + e.message); }
+    }
+
+    function switchBranch(branchName, idx) {
+      currentBranch = branchName;
+      document.querySelectorAll('.branch-tab').forEach((btn, i) => {
+        btn.className = i === idx
+          ? 'branch-tab px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition bg-blue-600 text-white shadow'
+          : 'branch-tab px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition bg-white text-gray-700 hover:bg-gray-50 border';
+      });
+      document.getElementById('attendance-body').innerHTML = '';
+      document.getElementById('empty-state').classList.remove('hidden');
+      document.getElementById('panel-title').textContent = '點名表';
+      document.getElementById('member-detail-panel').classList.add('hidden');
+    }
+
+    // ========== 點名核心功能 ==========
+    async function loadAttendance() {
+      const date = document.getElementById('meeting-date').value;
+      if (!date) { alert('請選擇集會日期'); return; }
+      if (!currentBranch) { alert('請先選擇支部'); return; }
+      currentDate = date;
+
+      try {
+        await api('syncMembers', {}, 'POST', {}); // 自動同步最新成員
+        const [memRes, attRes] = await Promise.all([
+          api('getMembers', { branch: currentBranch }),
+          api('getAttendance', { branch: currentBranch, date: date })
+        ]);
+        members = memRes.data || memRes || [];
+        attendanceRecords = attRes.data || attRes || [];
+        renderAttendanceTable();
+      } catch (e) { alert('載入失敗：' + e.message); }
+    }
+
+    function renderAttendanceTable() {
+      document.getElementById('empty-state').classList.add('hidden');
+      const tbody = document.getElementById('attendance-body');
+      const statusLabels = { P: '出席', A: '缺席', L: '遲到', E: '請假', S: '病假' };
+      const statusClasses = { P: 'status-P', A: 'status-A', L: 'status-L', E: 'status-E', S: 'status-S' };
+
+      tbody.innerHTML = members.map((m, idx) => {
+        const name = m.name || m.Name || m.姓名 || '';
+        const patrol = m.patrol || m.Patrol || m.小隊 || m.patrolName || '';
+        const ym = m.ymNumber || m.YMIS || m['YMIS號'] || m.ymis || '';
+        const existing = attendanceRecords.find(r => r.ymNumber === ym && r.name === name);
+        const currentStatus = existing ? existing.status : '';
+
+        return `
+          <tr class="hover:bg-gray-50 transition" data-name="${name}" data-ym="${ym}">
+            <td class="px-4 py-3 font-medium text-gray-900">${name}</td>
+            <td class="px-4 py-3 text-gray-500">${patrol}</td>
+            <td class="px-4 py-3 text-gray-500 font-mono text-xs">${ym}</td>
+            <td class="px-4 py-3">
+              <div class="flex gap-1 justify-center flex-wrap">
+                ${['P','A','L','E','S'].map(s => `
+                  <button onclick="setStatus(${idx}, '${s}')"
+                    class="status-btn w-10 h-10 rounded-lg border-2 text-xs font-bold flex items-center justify-center cursor-pointer ${statusClasses[s]} ${currentStatus === s ? 'active ring-2 ring-offset-1 ring-blue-400' : 'opacity-60 hover:opacity-100'}"
+                    data-status="${s}" data-idx="${idx}" title="${statusLabels[s]}">
+                    ${s}
+                  </button>
+                `).join('')}
+              </div>
+            </td>
+            <td class="px-4 py-3">
+              <input type="text" class="w-full px-2 py-1.5 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="備註" id="note-${idx}" value="${existing && existing.note ? existing.note : ''}">
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('panel-title').textContent = `${currentBranch} · ${currentDate} 點名表（共 ${members.length} 人）`;
+      hasChanges = false;
+      updateUnsavedBadge();
+    }
+
+    function setStatus(idx, status) {
+      const row = document.getElementById('attendance-body').children[idx];
+      row.querySelectorAll('.status-btn').forEach(btn => {
+        const s = btn.dataset.status;
+        if (s === status) {
+          btn.classList.add('active', 'ring-2', 'ring-offset-1', 'ring-blue-400');
+          btn.classList.remove('opacity-60');
+        } else {
+          btn.classList.remove('active', 'ring-2', 'ring-offset-1', 'ring-blue-400');
+          btn.classList.add('opacity-60');
+        }
+      });
+      hasChanges = true;
+      updateUnsavedBadge();
+    }
+
+    function updateUnsavedBadge() {
+      const badge = document.getElementById('unsaved-badge');
+      if (hasChanges) badge.classList.remove('hidden');
+      else badge.classList.add('hidden');
+    }
+
+    async function saveAttendance() {
+      const rows = document.getElementById('attendance-body').children;
+      const records = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const name = row.children[0].textContent.trim();
+        const patrol = row.children[1].textContent.trim();
+        const ymNumber = row.children[2].textContent.trim();
+        const activeBtn = row.querySelector('.status-btn.active');
+        const status = activeBtn ? activeBtn.dataset.status : '';
+        const note = row.querySelector('input').value.trim();
+        if (status) {
+          records.push({ name, patrol, ymNumber, status, note });
+        }
+      }
+      if (records.length === 0) { alert('請至少點選一位成員的出席狀態'); return; }
+
+      try {
+        const res = await api('saveAttendance', {}, 'POST', { branch: currentBranch, date: currentDate, records });
+        if (res.ok || res.success) {
+          hasChanges = false;
+          updateUnsavedBadge();
+          alert(`✅ 已儲存 ${records.length} 筆點名紀錄`);
+        } else {
+          alert('❌ 儲存失敗：' + (res.error || '未知錯誤'));
+        }
+      } catch (e) { alert('❌ 儲存失敗：' + e.message); }
+    }
+
+    async function syncMembers() {
+      if (!confirm('這會將旅團主系統的成員名單同步到點名表。\n\n- 新增成員會自動加入\n- 已離隊成員會標記為「left」\n\n確定同步？')) return;
+      try {
+        const res = await api('syncMembers', {}, 'POST', {});
+        alert(`✅ 同步完成：\n新增 ${res.synced || 0} 人\n更新 ${res.updated || 0} 人\n標記離隊 ${res.leftMarked || 0} 人`);
+      } catch (e) { alert('❌ 同步失敗：' + e.message); }
+    }
+
+    async function initSheet() {
+      if (!confirm('⚠️ 警告：這會清空 AttendanceRecords 工作表並重新從旅團主系統同步。\n原有的點名紀錄將會遺失！\n\n確定？')) return;
+      try {
+        const res = await api('initSheet', {}, 'POST', {});
+        alert(`✅ 重置完成：已同步 ${res.synced || 0} 位成員`);
+      } catch (e) { alert('❌ 重置失敗：' + e.message); }
+    }
+
+    // ========== 領袖查詢個別成員 ==========
+    async function searchMember() {
+      const query = document.getElementById('search-member').value.trim();
+      if (!query) return;
+      try {
+        const res = await api('getMemberDetail', { ymNumber: query, name: query });
+        const data = res.data || res;
+        if (data.error) {
+          document.getElementById('member-detail-panel').innerHTML = `<p class="text-red-600 text-sm">${data.error}</p>`;
+          document.getElementById('member-detail-panel').classList.remove('hidden');
+          return;
+        }
+        renderMemberDetail(data, 'member-detail-panel');
+      } catch (e) { alert('查詢失敗：' + e.message); }
+    }
+
+    function clearSearch() {
+      document.getElementById('search-member').value = '';
+      document.getElementById('member-detail-panel').classList.add('hidden');
+    }
+
+    function renderMemberDetail(data, containerId) {
+      const container = document.getElementById(containerId);
+      container.classList.remove('hidden');
+      const labels = { P: '出席', A: '缺席', L: '遲到', E: '請假', S: '病假' };
+      const colors = { P: 'text-green-600', A: 'text-red-600', L: 'text-yellow-600', E: 'text-blue-600', S: 'text-purple-600' };
+      
+      let html = `<div class="flex items-center justify-between mb-3">
+        <div>
+          <p class="text-lg font-bold text-gray-900">${data.name} <span class="text-sm font-normal text-gray-500">${data.ymNumber}</span></p>
+          <p class="text-sm text-gray-500">${data.branch} · ${data.patrol || '無小隊'} · ${data.role}</p>
+        </div>
+        ${data.stats ? `<div class="text-right text-sm">
+          <span class="text-green-600 font-bold">${data.stats.P || 0} 出席</span> / 
+          <span class="text-red-600">${data.stats.A || 0} 缺席</span> / 
+          <span class="text-yellow-600">${data.stats.L || 0} 遲到</span> / 
+          <span class="text-blue-600">${data.stats.E || 0} 請假</span> / 
+          <span class="text-purple-600">${data.stats.S || 0} 病假</span>
+          <br><span class="text-gray-400">共 ${data.stats.total || 0} 次紀錄</span>
+        </div>` : ''}
+      </div>`;
+      
+      const dates = Object.entries(data.dates || {}).sort((a, b) => a[0].localeCompare(b[0]));
+      if (dates.length === 0) {
+        html += '<p class="text-gray-500 text-sm">暫無出席紀錄。</p>';
+      } else {
+        html += `<div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">`;
+        dates.forEach(([date, status]) => {
+          html += `<div class="bg-white p-2 rounded border text-center">
+            <span class="text-xs text-gray-500 block">${date}</span>
+            <span class="${colors[status] || 'text-gray-400'} font-bold text-sm">${labels[status] || status || '-'}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    // ========== 矩陣視圖 ==========
+    async function showMatrix() {
+      if (!currentBranch) { alert('請先選擇支部'); return; }
+      const days = document.getElementById('matrix-days').value;
+      try {
+        const res = await api('getMatrix', { branch: currentBranch, days: days });
+        const data = res.data || res;
+        const table = document.getElementById('matrix-table');
+        table.innerHTML = '';
+
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        trh.className = 'bg-gray-100';
+        (data.headers || []).forEach(h => {
+          const th = document.createElement('th');
+          th.className = 'px-2 py-2 border text-xs font-semibold text-gray-700 whitespace-nowrap';
+          th.textContent = h;
+          trh.appendChild(th);
+        });
+        thead.appendChild(trh);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        tbody.className = 'divide-y';
+        (data.rows || []).forEach(row => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-50';
+          (data.headers || []).forEach((h, i) => {
+            const td = document.createElement('td');
+            td.className = 'px-2 py-2 border text-xs';
+            const val = row[h] || '';
+            td.textContent = val;
+            if (i > 3) {
+              if (val === 'P') td.className += ' bg-green-50 text-green-700 font-bold';
+              else if (val === 'A') td.className += ' bg-red-50 text-red-700 font-bold';
+              else if (val === 'L') td.className += ' bg-yellow-50 text-yellow-700 font-bold';
+              else if (val === 'E') td.className += ' bg-blue-50 text-blue-700 font-bold';
+              else if (val === 'S') td.className += ' bg-purple-50 text-purple-700 font-bold';
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        document.getElementById('matrix-panel').classList.remove('hidden');
+        document.getElementById('matrix-panel').scrollIntoView({ behavior: 'smooth' });
+      } catch (e) { alert('❌ 載入矩陣失敗：' + e.message); }
+    }
+
+    function hideMatrix() { document.getElementById('matrix-panel').classList.add('hidden'); }
+
+    // ========== 匯出功能 ==========
+    async function downloadWordDoc() {
+      if (!currentBranch) { alert('請先選擇支部'); return; }
+      try {
+        const res = await api('getMatrix', { branch: currentBranch, days: 30 });
+        const data = res.data || res;
+        const headers = data.headers || [];
+        const rows = data.rows || [];
+
+        let rowsXml = '<w:tr>';
+        headers.forEach(h => {
+          rowsXml += `<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E5E7EB"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="18"/></w:rPr><w:t>${escapeXml(h)}</w:t></w:r></w:p></w:tc>`;
+        });
+        rowsXml += '</w:tr>';
+
+        rows.forEach(row => {
+          rowsXml += '<w:tr>';
+          headers.forEach(h => {
+            const val = escapeXml(String(row[h] || ''));
+            rowsXml += `<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:sz w:val="18"/><w:t>${val}</w:t></w:r></w:p></w:tc>`;
+          });
+          rowsXml += '</w:tr>';
+        });
+
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>${escapeXml(troopConfig.TROOP_NAME || '旅團')} 集會出席紀錄</w:t></w:r></w:p>
+    <w:p><w:r><w:sz w:val="18"/><w:t>支部：${escapeXml(currentBranch)} ｜ 匯出日期：${escapeXml(new Date().toLocaleDateString('zh-HK'))}</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/></w:tblBorders></w:tblPr>
+      ${rowsXml}
+    </w:tbl>
+    <w:p><w:r><w:sz w:val="18"/><w:t>註：P=出席  A=缺席  L=遲到  E=請假  S=病假</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+        const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+        const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+        const zip = new JSZip();
+        zip.file('[Content_Types].xml', ct);
+        zip.folder('_rels').file('.rels', rels);
+        zip.folder('word').file('document.xml', docXml);
+
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `出席紀錄_${currentBranch}_${new Date().toISOString().slice(0,10)}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) { alert('❌ 下載失敗：' + e.message); }
+    }
+
+    function escapeXml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+
+    async function downloadCSV() {
+      if (!currentBranch) { alert('請先選擇支部'); return; }
+      try {
+        const res = await api('getMatrix', { branch: currentBranch, days: 60 });
+        const data = res.data || res;
+        const headers = data.headers || [];
+        const rows = data.rows || [];
+
+        let csv = '\uFEFF';
+        csv += headers.map(h => `"${h}"`).join(',') + '\n';
+        rows.forEach(row => {
+          csv += headers.map(h => `"${(row[h] || '').replace(/"/g, '""')}"`).join(',') + '\n';
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `出席紀錄_${currentBranch}_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) { alert('❌ 匯出失敗：' + e.message); }
+    }
+
+    async function openPrintView() {
+      if (!currentBranch) { alert('請先選擇支部'); return; }
+      try {
+        const res = await api('getMatrix', { branch: currentBranch, days: 30 });
+        const data = res.data || res;
+        const headers = data.headers || [];
+        const rows = data.rows || [];
+        
+        let html = `<div class="text-center mb-4">
+          <h1 class="text-xl font-bold">${troopConfig.TROOP_NAME || '旅團'} 集會出席紀錄</h1>
+          <p class="text-sm">支部：${currentBranch} ｜ 列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
+        </div>`;
+        
+        html += '<table class="print-table w-full">';
+        html += '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+        rows.forEach(row => {
+          html += '<tr>' + headers.map(h => {
+            const v = row[h] || '';
+            let cls = '';
+            if (headers.indexOf(h) > 3) {
+              if (v === 'P') cls = 'bg-green-50 text-green-700 font-bold';
+              else if (v === 'A') cls = 'bg-red-50 text-red-700 font-bold';
+              else if (v === 'L') cls = 'bg-yellow-50 text-yellow-700 font-bold';
+              else if (v === 'E') cls = 'bg-blue-50 text-blue-700 font-bold';
+              else if (v === 'S') cls = 'bg-purple-50 text-purple-700 font-bold';
+            }
+            return `<td class="${cls}">${v}</td>`;
+          }).join('') + '</tr>';
+        });
+        html += '</table>';
+        html += `<p class="text-xs mt-4 text-gray-500">註：P=出席  A=缺席  L=遲到  E=請假  S=病假</p>`;
+        
+        document.getElementById('print-content').innerHTML = html;
+        document.getElementById('print-view').classList.remove('hidden');
+      } catch (e) { alert('❌ 載入失敗：' + e.message); }
+    }
+
+    function closePrintView() { document.getElementById('print-view').classList.add('hidden'); }
+
+    // ========== 成員模式 ==========
+    async function loadMyRecord() {
+      const id = document.getElementById('member-id').value.trim();
+      const pwd = document.getElementById('member-pwd').value;
+      if (!id) return alert('請輸入 YMIS 號碼或 Email');
+      try {
+        const credRes = await api('getMemberByCredentials', { id, password: pwd });
+        const member = credRes.data || credRes;
+        if (!member) return alert('查無此成員或密碼錯誤');
+
+        const res = await api('getMemberDetail', { ymNumber: member.ymNumber });
+        const record = res.data || res;
+        if (record.error) return alert(record.error);
+
+        renderMemberDetail(record, 'member-record');
+        document.getElementById('member-record').classList.remove('hidden');
+        document.getElementById('member-login').classList.add('hidden');
+
+        const patrolRes = await api('getPatrols', { branch: member.branch });
+        const patrols = patrolRes.data || patrolRes || [];
+        const myPatrol = patrols.find(p => p.name === member.patrol);
+        const isLeader = myPatrol && myPatrol.leader &&
+          (myPatrol.leader === member.name || myPatrol.leader === member.ymNumber || myPatrol.leader === member.email);
+
+        if (isLeader) {
+          const container = document.getElementById('member-record');
+          container.innerHTML += `<div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p class="text-sm text-blue-800 mb-3">🐾 你是 <strong>${member.patrol}</strong> 的隊長，可以查看小隊隊員紀錄。</p>
+            <button onclick="showPatrolView('${member.patrol}', '${member.branch}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium">查看小隊紀錄</button>
+          </div>`;
+        }
+      } catch (e) { alert('❌ 載入失敗：' + e.message); }
+    }
+
+    async function showPatrolView(patrolName, branch) {
+      try {
+        const memRes = await api('getMembers', { branch, patrol: patrolName });
+        const patrolMembers = memRes.data || memRes || [];
+        const matRes = await api('getMatrix', { branch, days: 30 });
+        const matrix = matRes.data || matRes;
+
+        const labels = { P: '出席', A: '缺席', L: '遲到', E: '請假', S: '病假' };
+        const colors = { P: 'text-green-600', A: 'text-red-600', L: 'text-yellow-600', E: 'text-blue-600', S: 'text-purple-600' };
+
+        const container = document.getElementById('member-record');
+        let html = `<div id="patrol-view-wrapper" class="mt-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-gray-900">🐾 ${patrolName} 小隊出席紀錄</h3>
+            <button onclick="document.getElementById('patrol-view-wrapper').remove()" class="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">返回</button>
+          </div>`;
+
+        if (patrolMembers.length === 0) {
+          html += '<p class="text-gray-500">小隊暫無隊員。</p>';
+        } else {
+          html += `<div class="overflow-x-auto rounded-lg border"><table class="w-full text-sm">
+            <thead class="bg-gray-50"><tr>
+              <th class="px-3 py-2 border text-left">姓名</th>
+              <th class="px-3 py-2 border text-left">YMIS</th>
+              ${(matrix.headers || []).slice(4).map(d => `<th class="px-3 py-2 border text-center whitespace-nowrap text-xs">${d}</th>`).join('')}
+            </tr></thead><tbody class="divide-y">`;
+
+          const ymSet = new Set(patrolMembers.map(m => m.ymNumber));
+          (matrix.rows || []).forEach(row => {
+            if (!ymSet.has(row.YMIS號)) return;
+            html += `<tr><td class="px-3 py-2 border font-medium">${row.姓名}</td><td class="px-3 py-2 border text-gray-500">${row.YMIS號}</td>`;
+            (matrix.headers || []).slice(4).forEach(d => {
+              const s = row[d] || '';
+              html += `<td class="px-3 py-2 border text-center ${colors[s] || 'text-gray-400'}">${labels[s] || s || '-'}</td>`;
+            });
+            html += '</tr>';
+          });
+          html += '</tbody></table></div>';
+        }
+        html += '</div>';
+        container.innerHTML += html;
+        container.scrollTop = container.scrollHeight;
+      } catch (e) { alert('❌ 載入小隊紀錄失敗：' + e.message); }
+    }
+
+    document.getElementById('meeting-date').valueAsDate = new Date();
+
+    // 啟動
+    init();
+  </script>
+</body>
+</html>

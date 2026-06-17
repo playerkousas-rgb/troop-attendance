@@ -1,0 +1,25 @@
+{
+  "plugins_entry": {
+    "id": "troop_attendance",
+    "title": "集會點名系統",
+    "icon": "📝",
+    "url": "https://troop-attendance.vercel.app",
+    "description": "各旅團只須部署 GAS 後端，Vercel 前端共用。與旅團主系統分離，只存放點名資料，可安全分享給領袖。支援支部分頁、橫向矩陣、自動同步成員、Word/CSV/列印匯出。",
+    "version": "1.0.0",
+    "tier": 3,
+    "embed": false,
+    "type": "jump",
+    "status": "active",
+    "needsUnitBackend": true,
+    "roles": ["leader", "member", "admin"],
+    "scopes": ["troop"]
+  },
+  "units_example": {
+    "id": "82",
+    "name": "第82旅",
+    "installs": ["troop_lib", "troop_attendance"],
+    "endpoints": {
+      "troop_attendance": "https://troop-attendance.vercel.app"
+    }
+  }
+}

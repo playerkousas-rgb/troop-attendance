@@ -1,0 +1,11 @@
+{
+  "name": "troop-attendance",
+  "version": "1.0.0",
+  "description": "旅團集會點名系統（Tier 3 元件）— 各旅團自部署",
+  "scripts": {
+    "validate": "echo 'No build needed for static HTML. Ready to deploy.'"
+  },
+  "keywords": ["scout", "troop", "attendance", "vercel", "google-apps-script"],
+  "author": "ScoutSystem",
+  "license": "MIT"
+}
