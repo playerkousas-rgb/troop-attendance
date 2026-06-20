@@ -39,10 +39,13 @@ export default async function handler(req, res) {
     url.searchParams.set(key, req.query[key]);
   });
 
-  // 若設定共用 API_KEY，附加到請求（GAS 可驗證）
-  if (process.env.GAS_API_KEY) {
-    url.searchParams.set('api_key', process.env.GAS_API_KEY);
+  // ★ 第3級安全機制：**強制**附加 API_KEY
+  //   即使有人猜到或知道 GAS URL，沒有正確 api_key 也完全無法讀取任何資料。
+  //   這是 tier 3 的核心防護（u 只防跨單位，API_KEY 防直接 URL 存取）。
+  if (!process.env.GAS_API_KEY) {
+    return res.status(500).json({ ok: false, error: 'System misconfigured: GAS_API_KEY must be set in Vercel for tier 3 security' });
   }
+  url.searchParams.set('api_key', process.env.GAS_API_KEY);
 
   try {
     const response = await fetch(url.toString(), {

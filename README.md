@@ -108,7 +108,7 @@
 
 ```
 GAS_MAP = {"82":"https://script.google.com/...","83":"https://script.google.com/..."}
-GAS_API_KEY = troop2026secret（可選，推薦）
+GAS_API_KEY = troop2026secret（**強制**，第3級安全機制核心，與各旅團 Config.API_KEY 必須相同）
 ```
 
 ### 4. 開通旅團（每旅團一次）
@@ -174,8 +174,8 @@ troop-attendance/
 |----|------|------|
 | **Registry 公開** | 只存 Vercel 前端 URL | GAS URL 不暴露 |
 | **Vercel 代理** | 環境變數 `GAS_MAP` 存 GAS URL（私密） | 用戶抓包也看不到 GAS 地址 |
-| **GAS u 驗證** | `u` 參數必須匹配 `TROOP_CODE` | 防止跨旅團資料混亂 |
-| **GAS API_KEY** | `api_key` 必須匹配 `Config.API_KEY` | 防止直接訪問 GAS URL |
+| **GAS u 驗證** | `u` 參數必須匹配 `TROOP_CODE` | 防止跨旅團資料混亂（前端可見性是允許的） |
+| **GAS API_KEY** | `api_key` 必須匹配 `Config.API_KEY`（**強制**） | 防止「知道 URL 就能直接從後端存取資料」<br>（API 鎖要來擋AI / 直接打 URL） |
 | **雙 Sheet 分離** | 點名 Sheet 獨立於主系統 | 領袖接觸不到敏感資料 |
 | **操作審計** | `save`/`sync`/`init` 記錄在 `AuditLog` | 可追溯操作 |
 

@@ -20,7 +20,7 @@ Dashboard → Settings → Environment Variables：
 | 變數名 | 值 | 說明 |
 |--------|-----|------|
 | `GAS_MAP` | `{"82":"https://.../exec","83":"https://.../exec"}` | 所有已開通旅團的 GAS URL，JSON 格式 |
-| `GAS_API_KEY` | `troop2026secret`（可選） | 雙重驗證密鑰，若設定 GAS 也必須配對 |
+| `GAS_API_KEY` | `troop2026secret`（**強制**） | 第3級安全機制核心金鑰。必須設定，且與每個旅團 Config.API_KEY 完全相同。沒有正確 api_key 即使知道 URL 也無法讀取資料。 |
 
 > 每當新旅團交來 GAS URL，更新 `GAS_MAP` → Vercel 會自動重新部署。
 

@@ -10,10 +10,40 @@
  * 1. 新建一個 Google Sheet（命名如「第82旅 集會點名紀錄」）
  * 2. 在這個 Sheet 中建立「Config」工作表，填入：
  *    A1=SOURCE_SHEET_ID, B1=旅團主系統Sheet的ID（從網址複製）
- *    A2=TROOP_NAME,      B2=第82旅（選填，會覆蓋主系統名稱）
+ *    A2=TROOP_CODE,      B2=82（**必填**，用於 API 鎖，防止跨旅團存取）
+ *    A3=TROOP_NAME,      B3=第82旅（選填）
+ *    A4=API_KEY,         B4=自訂密碼（**強烈建議設定**，Vercel 會自動帶 api_key 參數）
  * 3. 上方選單 → 擴充功能 → Apps Script → 貼上本程式碼
  * 4. 部署 → 網頁應用程式 → 執行身分：我 → 誰可以存取：任何人
  * 5. 複製 URL 給 Vercel 前端使用
+ *
+ * ★ 第3級安全機制（精確三層分工）：
+ *
+ *   1. 前端可見性（公開）：
+ *      因為第3層級元件其實是所有人都可以看到前端。
+ *      82 可以看到83 84 85 有在用這元件。
+ *      我看到可以點到。
+ *      URL 是用來連結前端的。
+ *
+ *   2. 登入保護（擋「人」）：
+ *      但在登入的時候因為沒登入帳戶及密碼就登不進去（這是原本的）。
+ *      登入及密碼是用來擋人。
+ *
+ *   3. API 鎖（擋「直接打 GAS URL」） ← 這才是 verifyUnit 的真正作用：
+ *      API 鎖的作用是原本因為我們的後端SHEET 結構是一樣的，
+ *      那如果我知道83 的URL 我就可以直接從後端存取資料
+ *      （那83的資料就完全沒保障）。
+ *      可能會給偷走 可能用直接吐JSON 等類似方式。
+ *      API 鎖要來擋AI 。
+ *
+ *   正確呼叫流程只有一種：
+ *   - 一定要經過共用 Vercel 前端 → /api/proxy
+ *   - proxy 自動帶 u + api_key
+ *   - 使用者永遠看不到真實的 GAS URL
+ *
+ *   任何直接打 GAS URL 的行為（不管怎麼拿到）：
+ *   - 必須同時有「正確 u（=TROOP_CODE）」 + 「正確 api_key」
+ *   - 否則 verifyUnit 立刻拒絕（Unauthorized）
  */
 
 const SHEET_NAMES = {
@@ -39,23 +69,30 @@ function verifyUnit(e) {
   const troopCode = config.TROOP_CODE || config.troopCode || '';
   const requestUnit = (e.parameter.u || '').toString().trim();
   
-  // 如果沒有設定 TROOP_CODE，允許任何請求（向後兼容，不建議用於生產）
-  if (!troopCode) return true;
+  // ★ 強制要求設定 TROOP_CODE（第3級 API 鎖核心）
+  if (!troopCode) {
+    throw new Error('Config 缺少 TROOP_CODE！請在 Config 工作表設定 TROOP_CODE（例如 82）。沒有設定就無法通過 API 鎖。');
+  }
   
   // 驗證：請求的 u 參數必須匹配本 Sheet 的 TROOP_CODE
   if (requestUnit !== troopCode) {
     throw new Error('Unauthorized: unit mismatch. This backend is configured for troop ' + troopCode + ', but received ' + requestUnit);
   }
   
-  // 若配置了 API_KEY，驗證之（防止直接訪問 GAS URL）
+  // ★ 第3級安全機制：API_KEY 為強制要求（防止即使知道 GAS URL 也能直接存取）
+  //   - u 鎖：防止跨旅團（82 不能讀 83 的資料）
+  //   - API_KEY 鎖：即使猜到/知道 URL，沒有正確金鑰也無法讀取
+  //   - 前端登入（role）由主系統保障，這裡只負責後端資料鎖
   const apiKey = config.API_KEY || '';
-  if (apiKey) {
-    const requestKey = (e.parameter.api_key || '').toString().trim();
-    if (requestKey !== apiKey) {
-      throw new Error('Unauthorized: invalid API key');
-    }
+  if (!apiKey) {
+    throw new Error('Config 缺少 API_KEY！第3級插件必須設定 API_KEY（自訂密碼）。沒有設定就無法通過 API 鎖。');
   }
-  
+
+  const requestKey = (e.parameter.api_key || '').toString().trim();
+  if (requestKey !== apiKey) {
+    throw new Error('Unauthorized: invalid API key');
+  }
+
   return true;
 }
 
