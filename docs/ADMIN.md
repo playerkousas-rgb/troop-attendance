@@ -46,12 +46,12 @@ Dashboard → Settings → Environment Variables：
 
 ### 4. 開通旅團（每個旅團一次）
 
-收到旅團交來的資料：
+收到旅團交來的資料（**GAS URL + API_KEY 兩樣都要**）：
 
 ```
 旅團號：82
 GAS URL：https://script.google.com/macros/s/.../exec
-（若有）API_KEY：troop2026secret
+API_KEY：troop2026secret   ← 旅團在自己 Config 設定的值（必須跟你 Vercel GAS_API_KEY 一樣）
 ```
 
 做兩件事：

@@ -49,7 +49,8 @@
           <p class="text-sm text-gray-500">新增工作表命名 <code class="bg-gray-100 px-1 rounded text-xs">Config</code>，填入兩行：</p>
           <div class="mt-1 bg-gray-50 p-2 rounded text-xs font-mono text-gray-700">
             A1: SOURCE_SHEET_ID &nbsp;&nbsp; B1: 你的旅團主系統 Sheet ID<br>
-            A2: TROOP_CODE &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B2: 82（你的旅團號）
+            A2: TROOP_CODE &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B2: 82（你的旅團號）<br>
+            A3: API_KEY &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B3: 與管理員 GAS_API_KEY 完全相同的金鑰（**必填**）
           </div>
           <p class="text-xs text-gray-400 mt-1">Sheet ID 從主系統網址 <code>.../d/XXXX/edit</code> 複製</p>
         </div>
@@ -112,6 +113,10 @@
         <input type="text" id="gas-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
       </div>
       <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">API_KEY（必須提供，與管理員的 GAS_API_KEY 完全相同）</label>
+        <input type="text" id="api-key" placeholder="例如：troop2026secret" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
         <label class="block text-xs font-medium text-gray-700 mb-1">備註（可選）</label>
         <textarea id="notes" rows="2" placeholder="其他說明" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
       </div>
@@ -138,57 +143,3 @@
       const name = document.getElementById('troop-name').value.trim() || '未填';
       const id = document.getElementById('troop-id').value.trim() || '未填';
       const email = document.getElementById('contact-email').value.trim() || '未填';
-      const gas = document.getElementById('gas-url').value.trim() || '未填';
-      const notes = document.getElementById('notes').value.trim();
-
-      const subject = encodeURIComponent('[集會點名系統] 旅團接入申請 — ' + name);
-      const body = encodeURIComponent(
-        '旅團名稱：' + name + '\n' +
-        '旅團號：' + id + '\n' +
-        '聯絡人 Email：' + email + '\n' +
-        'GAS URL：' + gas + '\n' +
-        (notes ? '備註：' + notes + '\n' : '')
-      );
-
-      mailtoBtn.href = 'mailto:ai@skwscout.org.hk?subject=' + subject + '&body=' + body;
-    }
-
-    form.addEventListener('input', updateMailto);
-    updateMailto();
-  </script>
-
-</body>
-</html>
-
-</div>
-
-<script>
-  const form = document.getElementById('onboard-form');
-  const mailtoBtn = document.getElementById('submit-mailto');
-
-  function updateMailto() {
-    const name = document.getElementById('troop-name').value.trim() || '未填';
-    const id = document.getElementById('troop-id').value.trim() || '未填';
-    const email = document.getElementById('contact-email').value.trim() || '未填';
-    const gas = document.getElementById('gas-url').value.trim() || '未填';
-    const notes = document.getElementById('notes').value.trim();
-
-    const subject = encodeURIComponent('[集會點名系統] 旅團接入申請 — ' + name);
-    const body = encodeURIComponent(
-      '旅團名稱：' + name + '\n' +
-      '旅團號：' + id + '\n' +
-      '聯絡人 Email：' + email + '\n' +
-      'GAS URL：' + gas + '\n' +
-      (notes ? '備註：' + notes + '\n' : '')
-    );
-
-    // ⚠️ 請修改為你的管理員 Email
-    mailtoBtn.href = 'mailto:ai@skwscout.org.hk?subject=' + subject + '&body=' + body;
-  }
-
-  form.addEventListener('input', updateMailto);
-  updateMailto();
-</script>
-
-</body>
-</html>
